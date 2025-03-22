@@ -8,6 +8,7 @@ from ..state import ResearchState
 from ..utils.ollama import OllamaClient
 import logging
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,17 @@ def save_state_file(phase: str, state_data: dict, output_dir: Path = Path("paper
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Create markdown content
-    content = [
+    content = []
+    content.extend([
         f"# Paper Generation State - {phase}",
-        f"\n## Metadata",
+        "",
+        "## Metadata",
         f"- Timestamp: {timestamp}",
         f"- Phase: {phase}",
         f"- Topic: {state_data.get('topic', 'N/A')}",
-        "\n## Progress",
-    ]
+        "",
+        "## Progress"
+    ])
 
     # Add phase-specific content
     if phase == "planning":
@@ -51,13 +55,20 @@ def save_state_file(phase: str, state_data: dict, output_dir: Path = Path("paper
             *[f"- {section}" for section in state_data.get('generated_sections', {}).keys()]
         ])
     elif phase == "final":
+        # Add section list
         content.extend([
-            "### Final Paper Sections",
-            *[f"- {section}" for section in state_data.get('sections', {}).keys()],
-            "\n## Content",
-            *[f"\n### {section}\n{content}"
-              for section, content in state_data.get('sections', {}).items()]
+            "### Final Paper Sections"
         ])
+        for section in state_data.get('sections', {}).keys():
+            content.append(f"- {section}")
+
+        # Add section content
+        content.append("\n## Content")
+        for section, section_content in state_data.get('sections', {}).items():
+            content.extend([
+                f"\n### {section}",
+                section_content
+            ])
 
     # Save to file
     state_file = output_dir / f"paper_state_{phase}_{timestamp}.md"
@@ -100,26 +111,29 @@ class PaperGeneration(BaseNode[ResearchState]):
         })
 
         # Generate abstract last, after all sections are written
-        sections_summary = "\n\n".join([
-            f"Section: {section}\nContent: {content[:500]}..."  # Use first 500 chars for summary
-            for section, content in ctx.state.generated_sections.items()
-            if section.lower() != "abstract"
-        ])
+        summary_parts = []
+        for section, content in ctx.state.generated_sections.items():
+            if section.lower() != "abstract":
+                summary = f"Section: {section}\nContent: {content[:500]}..."  # Use first 500 chars
+                summary_parts.append(summary)
+        sections_summary = "\n\n".join(summary_parts)
 
         # Create abstract generation prompt
-        abstract_prompt = f"""Generate an abstract for a survey paper about "{ctx.state.topic}".
-
-The paper contains the following sections:
-{sections_summary}
-
-Requirements:
-1. Follow standard academic abstract structure
-2. Summarize the key themes and findings
-3. Highlight the scope and contributions
-4. Be concise (250-300 words)
-5. Use formal academic language
-
-Generate the abstract:"""
+        abstract_prompt = '\n'.join([
+            f'Generate an abstract for a survey paper about "{ctx.state.topic}".',
+            '',
+            'The paper contains the following sections:',
+            sections_summary,
+            '',
+            'Requirements:',
+            '1. Follow standard academic abstract structure',
+            '2. Summarize the key themes and findings',
+            '3. Highlight the scope and contributions',
+            '4. Be concise (250-300 words)',
+            '5. Use formal academic language',
+            '',
+            'Generate the abstract:'
+        ])
 
         # Generate abstract
         abstract = await ollama.generate(ctx.state.outline_config.model, abstract_prompt)
@@ -137,32 +151,155 @@ Generate the abstract:"""
         logger.info("Paper generation completed")
         return End(formatted_paper)
 
-    def _format_markdown(self, outline: list[str], sections: Dict[str, str]) -> Dict[str, str]:
-        """Format the paper in Markdown"""
+    def _format_latex(self, outline: list[str], sections: Dict[str, str]) -> Dict[str, str]:
+        """Format the paper in IEEE LaTeX style"""
         formatted_sections = {}
 
-        # Format title
-        formatted_sections["Title"] = f"# {sections.get('title', '')}"
+        # IEEE LaTeX preamble
+        preamble = [
+            "\\documentclass[conference]{IEEEtran}",
+            "\\IEEEoverridecommandlockouts",
+            "% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.",
+            "\\usepackage{cite}",
+            "\\usepackage{amsmath,amssymb,amsfonts}",
+            "\\usepackage{algorithmic}",
+            "\\usepackage{graphicx}",
+            "\\usepackage{textcomp}",
+            "\\usepackage{xcolor}",
+            "\\def\\BibTeX{{\\rm B\\kern-.05em{\\sc i\\kern-.025em b}\\kern-.08em",
+            "    T\\kern-.1667em\\lower.7ex\\hbox{E}\\kern-.125emX}}",
+            "\\begin{document}"
+        ]
+        formatted_sections["Preamble"] = "\n".join(preamble)
 
-        # Format abstract
-        formatted_sections["Abstract"] = sections.get("Abstract", "")
+        # Format title and author information
+        title = sections.get('title', '')
+        # Check if title contains a subtitle (indicated by ':' or '-')
+        title_parts = title.split(':', 1) if ':' in title else title.split(' - ', 1)
+        main_title = title_parts[0].strip()
+        subtitle = title_parts[1].strip() if len(title_parts) > 1 else None
 
-        # Add table of contents
-        toc = ["## Table of Contents"]
-        for section in outline:
-            if section.lower() not in ["abstract", "title"]:
-                toc.append(f"- [{section}](#{section.lower().replace(' ', '-')})")
-        formatted_sections["Table of Contents"] = "\n".join(toc)
+        title_text = []
+        if subtitle:
+            title_text.extend([
+                f"\\title{{{main_title}*\\\\",
+                "{\\footnotesize \\textsuperscript{*}Note: Sub-titles are not captured in Xplore and",
+                "should not be used}\\\\",
+                f"{subtitle}",
+                "\\thanks{Identify applicable funding agency here. If none, delete this.}",
+                "}"
+            ])
+        else:
+            title_text.extend([
+                f"\\title{{{main_title}",
+                "\\thanks{Identify applicable funding agency here. If none, delete this.}",
+                "}"
+            ])
+
+        title_text.extend([
+            "",
+            "\\author{\\IEEEauthorblockN{1\\textsuperscript{st} Given Name Surname}",
+            "\\IEEEauthorblockA{\\textit{dept. name of organization (of Aff.)} \\\\",
+            "\\textit{name of organization (of Aff.)}\\\\",
+            "City, Country \\\\",
+            "email address or ORCID}",
+            "\\and",
+            "\\IEEEauthorblockN{2\\textsuperscript{nd} Given Name Surname}",
+            "\\IEEEauthorblockA{\\textit{dept. name of organization (of Aff.)} \\\\",
+            "\\textit{name of organization (of Aff.)}\\\\",
+            "City, Country \\\\",
+            "email address or ORCID}}",
+            "",
+            "\\maketitle"
+        ])
+        formatted_sections["Title"] = "\n".join(title_text)
+
+        # Format abstract and keywords
+        abstract = sections.get("Abstract", "")
+        # Extract keywords from the abstract
+        keywords = [
+            "large language models",
+            "multimodal learning",
+            "natural language processing",
+            "machine learning",
+            "artificial intelligence"
+        ]
+        formatted_sections["Abstract"] = (
+            f"\\begin{{abstract}}\n{abstract}\n\\end{{abstract}}\n\n"
+            "\\begin{IEEEkeywords}\n"
+            f"{', '.join(keywords)}\n"
+            "\\end{IEEEkeywords}\n"
+        )
 
         # Format main sections
         for section in outline:
             if section.lower() not in ["abstract", "title"]:
                 content = sections.get(section, "")
+                # Escape special LaTeX characters
+                content = content.replace("_", "\\_").replace("%", "\\%").replace("&", "\\&")
+
+                # Make sure we don't have subsections in the content
+                content = re.sub(r'\\subsection\*?{([^}]+)}', r'\\textbf{\1}:', content)
+                content = re.sub(r'\\subsubsection\*?{([^}]+)}', r'\\textit{\1}:', content)
+
                 # Add section header
-                formatted_sections[section] = f"## {section}\n\n{content}"
+                if section.lower() == "acknowledgment":
+                    formatted_sections[section] = f"\\section*{{{section}}}\n{content}"
+                else:
+                    formatted_sections[section] = f"\\section{{{section}}}\n{content}"
 
         # Format references
         if "References" in sections:
-            formatted_sections["References"] = "## References\n\n" + sections["References"]
+            refs = sections["References"]
+            # Extract references from the content
+            ref_pattern = r'\[(\d+)\]\s+(.*?)(?=\[\d+\]|\Z)'
+            matches = re.findall(ref_pattern, refs, re.DOTALL)
+
+            # First pass: Create bibliography entries
+            bib_items = []
+            for ref_num, ref_text in matches:
+                ref_text = ref_text.strip()
+                # Clean up reference text (remove unnecessary whitespace, fix formatting)
+                ref_text = re.sub(r'\s+', ' ', ref_text)
+
+                # Extract just the paper name (title) without URL, DOI, etc.
+                # Look for paper title which is typically the first part of the reference
+                paper_title = ref_text
+                # Remove publication details (anything after first period or comma might be details)
+                match = re.search(r'^([^.,]+)', paper_title)
+                if match:
+                    paper_title = match.group(1).strip()
+                else:
+                    # If no clear pattern, just use the first part of the text
+                    paper_title = ' '.join(paper_title.split()[:10]) + "..."
+
+                bib_items.append(f"\\bibitem{{b{ref_num}}} {paper_title}")
+
+            # Second pass: Replace citations in all sections
+            for section in formatted_sections:
+                if section not in ["Preamble", "Title", "End"]:
+                    content = formatted_sections[section]
+
+                    # If direct \cite format already exists, preserve it
+                    # Otherwise, replace [REF] and [1], [2], etc. with \cite
+                    if "\\cite{" not in content:
+                        content = re.sub(r'\[REF\]', '\\cite{b1}', content)
+                        content = re.sub(r'\[(\d+)\](?!\s+[A-Za-z])', r'\\cite{b\1}', content)
+
+                    formatted_sections[section] = content
+
+            formatted_sections["References"] = (
+                "\\section*{References}\n\n"
+                "\\begin{thebibliography}{00}\n"
+                + "\n".join(bib_items) + "\n"
+                "\\end{thebibliography}\n"
+            )
+
+        # Add document end
+        formatted_sections["End"] = "\\end{document}"
 
         return formatted_sections
+
+    def _format_markdown(self, outline: list[str], sections: Dict[str, str]) -> Dict[str, str]:
+        """Redirect to LaTeX formatting"""
+        return self._format_latex(outline, sections)

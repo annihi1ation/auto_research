@@ -116,10 +116,11 @@ Use this analysis of relevant papers:
 Requirements:
 1. Write in an academic style suitable for a survey paper
 2. Organize content logically and maintain flow
-3. Cite relevant works (use placeholder citations [REF])
-4. Be comprehensive yet concise
-5. Highlight key themes and developments
-6. Discuss implications and connections
+3. Cite references directly using the IEEE citation format (e.g., \cite{{bX}}) instead of [REF]
+4. Do NOT use subsections - organize content as a cohesive article without additional headers
+5. Be comprehensive yet concise
+6. Highlight key themes and developments
+7. Discuss implications and connections
 
 Generate the section content:"""
 

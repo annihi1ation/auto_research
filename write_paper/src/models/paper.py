@@ -41,3 +41,34 @@ class ArxivPaper(Base):
     update_date = Column(String)
     authors_parsed = Column(JSONB)
     embedding = Column(Vector(768))
+
+    def to_dict(self):
+        """Convert ArxivPaper instance to a dictionary for JSON serialization"""
+        # For complex objects like embedding, we need to handle them specially
+        embedding_value = None
+        if self.embedding:
+            # If embedding is a list/vector, convert to list of floats
+            if isinstance(self.embedding, list):
+                embedding_value = [float(x) for x in self.embedding]
+            else:
+                # If it's already processed by SQLAlchemy, just use as is
+                embedding_value = self.embedding
+
+        return {
+            'id': self.id,
+            'submitter': self.submitter,
+            'authors': self.authors,
+            'title': self.title,
+            'comments': self.comments,
+            'journal_ref': self.journal_ref,
+            'doi': self.doi,
+            'report_no': self.report_no,
+            'categories': self.categories,
+            'license': self.license,
+            'abstract': self.abstract,
+            'versions': self.versions,
+            'update_date': self.update_date,
+            'authors_parsed': self.authors_parsed,
+            # Don't include embedding to save space - it can be very large
+            # 'embedding': embedding_value
+        }

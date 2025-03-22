@@ -15,6 +15,8 @@ from src.state import ResearchState, OutlineConfig
 from src.nodes.planning import PlanningPhase, OutlineGeneration, SectionPlanning
 from src.nodes.research import PaperSearch, ContentAnalysis, ContentSynthesis
 from src.nodes.generation import PaperGeneration
+from src.nodes.autosurvey import AutoSurveyPipeline, Stage1_InitialRetrieval, Stage2_SubsectionDrafting
+from src.nodes.autosurvey import Stage3_IntegrationRefinement, Stage4_EvaluationIteration
 
 def setup_logging(log_file: str = 'research_paper.log'):
     """Configure logging to output to both file and console with detailed formatting"""
@@ -59,11 +61,23 @@ research_graph = Graph(
     ]
 )
 
+# Define the AutoSurvey pipeline graph
+autosurvey_graph = Graph(
+    nodes=[
+        AutoSurveyPipeline,
+        Stage1_InitialRetrieval,
+        Stage2_SubsectionDrafting,
+        Stage3_IntegrationRefinement,
+        Stage4_EvaluationIteration
+    ]
+)
+
 async def generate_paper(
     topic: str,
     output_dir: str = "output",
     model: str = "llama2",
-    reference_num: int = 1500
+    reference_num: int = 1500,
+    use_autosurvey: bool = False
 ) -> None:
     """Generate a research paper on the given topic"""
     try:
@@ -83,25 +97,41 @@ async def generate_paper(
             outline_config=outline_config
         )
 
-        # Run the workflow
-        result, history = await research_graph.run(PlanningPhase(), state=state)
+        # Run the workflow - choose between standard and AutoSurvey pipeline
+        if use_autosurvey:
+            logger.info("Using AutoSurvey pipeline")
+            result, history = await autosurvey_graph.run(AutoSurveyPipeline(), state=state)
+        else:
+            logger.info("Using standard pipeline")
+            result, history = await research_graph.run(PlanningPhase(), state=state)
 
-        # Save the generated paper in markdown format
-        paper_path = output_path / f"{topic.replace(' ', '_')}_survey.md"
+        # Save the generated paper in IEEE LaTeX format
+        paper_path = output_path / f"{topic.replace(' ', '_')}_survey.tex"
 
-        # Combine all sections in order
+        # Combine all sections in IEEE LaTeX order
         paper_content = []
-        paper_content.append(result["Title"])
-        paper_content.append("\n## Abstract\n")
-        paper_content.append(result["Abstract"])
-        paper_content.append("\n" + result["Table of Contents"] + "\n")
 
+        # Add preamble
+        paper_content.append(result["Preamble"])
+
+        # Add title and author
+        paper_content.append(result["Title"])
+
+        # Add abstract
+        paper_content.append(result["Abstract"])
+
+        # Add main sections
         for section in state.outline:
             if section.lower() not in ["abstract", "title"]:
-                paper_content.append(result[section])
+                if section in result:
+                    paper_content.append(result[section])
 
+        # Add references
         if "References" in result:
             paper_content.append(result["References"])
+
+        # Add document end
+        paper_content.append(result["End"])
 
         # Write to file
         with open(paper_path, "w") as f:
@@ -125,6 +155,7 @@ def main():
     parser.add_argument("--output", default="output", help="Output directory")
     parser.add_argument("--model", default="llama2", help="Ollama model to use")
     parser.add_argument("--reference-num", type=int, default=1500, help="Number of reference papers to consider")
+    parser.add_argument("--autosurvey", action="store_true", help="Use the AutoSurvey pipeline")
 
     args = parser.parse_args()
     logger.info("Command line arguments: %s", args)
@@ -133,7 +164,8 @@ def main():
         topic=args.topic,
         output_dir=args.output,
         model=args.model,
-        reference_num=args.reference_num
+        reference_num=args.reference_num,
+        use_autosurvey=args.autosurvey
     ))
 
 if __name__ == "__main__":
