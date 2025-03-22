@@ -1,0 +1,12 @@
+---
+title: upload_graph
+---
+stateDiagram-v2
+  [*] --> SetupDirectories
+  SetupDirectories --> DownloadDataset
+  DownloadDataset --> UnzipFiles
+  UnzipFiles --> CheckDatabase
+  CheckDatabase --> CreateTable
+  CheckDatabase --> ReadData
+  CreateTable --> ReadData
+  ReadData --> [*]

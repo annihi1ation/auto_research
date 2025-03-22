@@ -1,0 +1,14 @@
+pydantic-ai
+pydantic-graph
+fastapi
+uvicorn
+kaggle
+python-slugify
+text-unidecode
+bleach
+webencodings
+pandas
+sqlalchemy
+psycopg2
+sentence_transformers
+einops

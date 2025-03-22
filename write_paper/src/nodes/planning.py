@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+from dataclasses import dataclass
+from pydantic_graph import BaseNode, GraphRunContext, End
+from typing import List
+from ..state import ResearchState
+from ..utils.ollama import OutlineGenerator
+from .research import PaperSearch
+import logging
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class PlanningPhase(BaseNode[ResearchState]):
+    """Initial planning phase for research paper generation"""
+    async def run(self, ctx: GraphRunContext[ResearchState]) -> "OutlineGeneration":
+        ctx.state.current_phase = "planning"
+        logger.info(f"Starting planning phase for topic: {ctx.state.topic}")
+        return OutlineGeneration()
+
+@dataclass
+class OutlineGeneration(BaseNode[ResearchState]):
+    """Generate paper outline using Ollama and reference papers"""
+    async def run(self, ctx: GraphRunContext[ResearchState]) -> "SectionPlanning":
+        logger.info("Generating outline using Ollama and reference papers")
+
+        # Initialize outline generator with config
+        outline_generator = OutlineGenerator(
+            model=ctx.state.outline_config.model,
+            reference_num=ctx.state.outline_config.reference_num
+        )
+
+        # Generate outline
+        try:
+            outline = await outline_generator.generate_outline(ctx.state.topic)
+            ctx.state.outline = outline
+            logger.info(f"Generated outline with {len(outline)} sections")
+        except Exception as e:
+            logger.error(f"Error generating outline: {str(e)}")
+            # Fallback to basic outline
+            ctx.state.outline = [
+                "Abstract",
+                "Introduction",
+                "Background",
+                "Current State of the Art",
+                "Future Directions",
+                "Conclusion"
+            ]
+
+        return SectionPlanning()
+
+@dataclass
+class SectionPlanning(BaseNode[ResearchState]):
+    """Plan content generation for each section"""
+    async def run(self, ctx: GraphRunContext[ResearchState]) -> "PaperSearch":
+        logger.info("Planning section content generation")
+
+        # Initialize section content placeholders
+        ctx.state.generated_sections = {
+            section: "" for section in ctx.state.outline
+        }
+
+        # Move to paper search phase
+        return PaperSearch()
