@@ -72,3 +72,6 @@ local.properties
 
 write_paper/output/
 write_paper/paper_states/
+output/
+paper_states/
+

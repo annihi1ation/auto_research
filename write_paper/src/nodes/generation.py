@@ -12,103 +12,12 @@ import re
 
 logger = logging.getLogger(__name__)
 
-def save_state_file(phase: str, state_data: dict, output_dir: Path = Path("paper_states")) -> None:
-    """Save the current state to a markdown file"""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    # Create markdown content
-    content = []
-    content.extend([
-        f"# Paper Generation State - {phase}",
-        "",
-        "## Metadata",
-        f"- Timestamp: {timestamp}",
-        f"- Phase: {phase}",
-        f"- Topic: {state_data.get('topic', 'N/A')}",
-        "",
-        "## Progress"
-    ])
-
-    # Add phase-specific content
-    if phase == "planning":
-        content.extend([
-            "### Outline",
-            *[f"- {section}" for section in state_data.get('outline', [])]
-        ])
-    elif phase == "research":
-        content.extend([
-            "### Related Papers",
-            f"- Total papers: {len(state_data.get('related_papers', []))}",
-            "### Papers by Section",
-            *[f"- {section}: {len(papers)} papers"
-              for section, papers in state_data.get('section_papers', {}).items()]
-        ])
-    elif phase == "analysis":
-        content.extend([
-            "### Analyzed Sections",
-            *[f"- {section}" for section in state_data.get('section_analysis', {}).keys()]
-        ])
-    elif phase == "synthesis":
-        content.extend([
-            "### Generated Sections",
-            *[f"- {section}" for section in state_data.get('generated_sections', {}).keys()]
-        ])
-    elif phase == "final":
-        # Add section list
-        content.extend([
-            "### Final Paper Sections"
-        ])
-        for section in state_data.get('sections', {}).keys():
-            content.append(f"- {section}")
-
-        # Add section content
-        content.append("\n## Content")
-        for section, section_content in state_data.get('sections', {}).items():
-            content.extend([
-                f"\n### {section}",
-                section_content
-            ])
-
-    # Save to file
-    state_file = output_dir / f"paper_state_{phase}_{timestamp}.md"
-    state_file.write_text("\n".join(content))
-    logger.info(f"Saved state file: {state_file}")
-
 @dataclass
 class PaperGeneration(BaseNode[ResearchState]):
     """Generate final paper in Markdown format"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "End[Dict[str, str]]":
         logger.info("Generating final paper")
         ollama = OllamaClient()
-
-        # Save planning state
-        save_state_file("planning", {
-            "topic": ctx.state.topic,
-            "outline": ctx.state.outline
-        })
-
-        # Save research state
-        save_state_file("research", {
-            "topic": ctx.state.topic,
-            "related_papers": [paper.id for paper in ctx.state.related_papers.values()],
-            "section_papers": {
-                section: [p.id for p in papers]
-                for section, papers in getattr(ctx.state, 'section_papers', {}).items()
-            }
-        })
-
-        # Save analysis state
-        save_state_file("analysis", {
-            "topic": ctx.state.topic,
-            "section_analysis": ctx.state.section_analysis
-        })
-
-        # Save synthesis state
-        save_state_file("synthesis", {
-            "topic": ctx.state.topic,
-            "generated_sections": ctx.state.generated_sections
-        })
 
         # Generate abstract last, after all sections are written
         summary_parts = []
@@ -142,11 +51,36 @@ class PaperGeneration(BaseNode[ResearchState]):
         # Format paper in Markdown
         formatted_paper = self._format_markdown(ctx.state.outline, ctx.state.generated_sections)
 
-        # Save final state
-        save_state_file("final", {
-            "topic": ctx.state.topic,
-            "sections": formatted_paper
-        })
+        # Save complete state to JSON file
+        output_dir = Path("result")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        complete_state = {
+            "metadata": {
+                "timestamp": timestamp,
+                "topic": ctx.state.topic,
+                "model": ctx.state.outline_config.model,
+                "reference_num": ctx.state.outline_config.reference_num
+            },
+            "state": {
+                "topic": ctx.state.topic,
+                "outline": ctx.state.outline,
+                "related_papers": [paper.id for paper in ctx.state.related_papers.values()],
+                "section_papers": {
+                    section: [f"[{p.id}] Title: {p.title}" for p in papers]
+                    for section, papers in getattr(ctx.state, 'section_papers', {}).items()
+                },
+                "section_analysis": ctx.state.section_analysis,
+                "generated_sections": ctx.state.generated_sections,
+                "final_paper": formatted_paper
+            }
+        }
+
+        json_file = output_dir / f"{ctx.state.topic}.json"
+        with open(json_file, "w") as f:
+            json.dump(complete_state, f, indent=2)
+        logger.info(f"Saved complete state to: {json_file}")
 
         logger.info("Paper generation completed")
         return End(formatted_paper)

@@ -107,8 +107,14 @@ class ContentSynthesis(BaseNode[ResearchState]):
             # Get analysis for this section
             analysis = ctx.state.section_analysis.get(section, "")
 
+            # Get related papers for this section
+            related_papers = ctx.state.section_papers.get(section, [])
+
             # Create synthesis prompt
             prompt = f"""Write the "{section}" section of a survey paper about "{ctx.state.topic}".
+
+Reference Papers:
+{chr(10).join([f"[{paper.id}] Title: {paper.title}" for paper in related_papers])}
 
 Use this analysis of relevant papers:
 {analysis}
@@ -116,7 +122,7 @@ Use this analysis of relevant papers:
 Requirements:
 1. Write in an academic style suitable for a survey paper
 2. Organize content logically and maintain flow
-3. Cite references directly using the IEEE citation format (e.g., \cite{{bX}}) instead of [REF]
+3. Cite references directly using the IEEE citation format (e.g., \cite{{paper id}}) instead of [REF]
 4. Do NOT use subsections - organize content as a cohesive article without additional headers
 5. Be comprehensive yet concise
 6. Highlight key themes and developments

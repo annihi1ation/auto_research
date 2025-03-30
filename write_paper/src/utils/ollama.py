@@ -90,7 +90,7 @@ class OutlineGenerator:
         for paper in papers:
             context.append(f"Title: {paper.title}")
             if paper.abstract:
-                context.append(f"Abstract: {paper.abstract[:200]}...")  # Truncate long abstracts
+                context.append(f"Abstract: {paper.abstract}")  # Truncate long abstracts
         return "\n\n".join(context)
 
     def _create_outline_prompt(self, topic: str, context: str) -> str:
