@@ -5,8 +5,8 @@ from typing import Dict, List
 
 from src.nodes.generation import PaperGeneration
 from src.state import ResearchState
-from src.utils.db import DatabaseManager
-from src.utils.ollama import OllamaClient
+from src.providers.utils.db import DatabaseManager
+from src.providers.llm.factory import LLMProviderFactory
 import logging
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,6 @@ class ContentAnalysis(BaseNode[ResearchState]):
     """Analyze content from related papers"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "ContentSynthesis":
         logger.info("Analyzing paper content")
-        ollama = OllamaClient()
 
         # For each section, analyze the papers and extract key information
         section_analysis: Dict[str, str] = {}
@@ -84,8 +83,12 @@ Extract and summarize:
 
 Format the analysis in a structured way that can be used to write the survey paper section."""
 
-            # Get analysis from Ollama
-            analysis = await ollama.generate(ctx.state.outline_config.model, prompt)
+            # Get analysis
+            analysis = await LLMProviderFactory.generate_with_provider(
+                "ollama",
+                prompt,
+                {"model": ctx.state.outline_config.model}
+            )
             section_analysis[section] = analysis
 
         # Store analysis in state
@@ -97,7 +100,6 @@ class ContentSynthesis(BaseNode[ResearchState]):
     """Synthesize analyzed content into coherent sections"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "PaperGeneration":
         logger.info("Synthesizing content for sections")
-        ollama = OllamaClient()
 
         # Generate content for each section
         for section in ctx.state.outline:
@@ -131,7 +133,11 @@ Requirements:
 Generate the section content:"""
 
             # Generate section content
-            content = await ollama.generate(ctx.state.outline_config.model, prompt)
+            content = await LLMProviderFactory.generate_with_provider(
+                "ollama",
+                prompt,
+                {"model": ctx.state.outline_config.model}
+            )
             ctx.state.generated_sections[section] = content
             logger.info(f"Generated content for section: {section}")
 

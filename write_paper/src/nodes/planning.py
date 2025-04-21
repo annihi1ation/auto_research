@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pydantic_graph import BaseNode, GraphRunContext, End
 from typing import List
 from ..state import ResearchState
-from ..utils.ollama import OutlineGenerator
+from ..providers.llm.outline import OutlineGenerator
 from .research import PaperSearch
 import logging
 

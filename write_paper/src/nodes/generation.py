@@ -5,7 +5,7 @@ from typing import Dict
 from datetime import datetime
 from pathlib import Path
 from ..state import ResearchState
-from ..utils.ollama import OllamaClient
+from ..providers.llm.factory import LLMProviderFactory
 import logging
 import json
 import re
@@ -17,7 +17,6 @@ class PaperGeneration(BaseNode[ResearchState]):
     """Generate final paper in Markdown format"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "End[Dict[str, str]]":
         logger.info("Generating final paper")
-        ollama = OllamaClient()
 
         # Generate abstract last, after all sections are written
         summary_parts = []
@@ -45,7 +44,11 @@ class PaperGeneration(BaseNode[ResearchState]):
         ])
 
         # Generate abstract
-        abstract = await ollama.generate(ctx.state.outline_config.model, abstract_prompt)
+        abstract = await LLMProviderFactory.generate_with_provider(
+            "ollama",
+            abstract_prompt,
+            {"model": ctx.state.outline_config.model}
+        )
         ctx.state.generated_sections["Abstract"] = abstract
 
         # Format paper in Markdown

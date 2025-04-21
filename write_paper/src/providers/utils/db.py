@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import numpy as np
-from ..models.paper import ArxivPaper
+from ...models.paper import ArxivPaper
 
 logger = logging.getLogger(__name__)
 
