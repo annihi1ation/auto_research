@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging
+import os
 from typing import Dict, Any, Optional
 import aiohttp
 from .base import BaseLLMProvider
@@ -21,7 +22,7 @@ class OpenRouterProvider(BaseLLMProvider):
                 route_prefix: Optional route prefix
         """
         super().__init__(config)
-        self.api_key = self.config.get("api_key")
+        self.api_key = os.environ.get("OPENROUTER_API_KEY")
         if not self.api_key:
             logger.warning("No API key provided for OpenRouter provider")
 
@@ -50,8 +51,8 @@ class OpenRouterProvider(BaseLLMProvider):
             return ""
 
         model = kwargs.get("model", self.default_model)
-        max_tokens = kwargs.get("max_tokens", 1024)
-        temperature = kwargs.get("temperature", 0.7)
+        max_tokens = kwargs.get("max_tokens", 10000)
+        temperature = kwargs.get("temperature", 0.9)
 
         headers = {
             "Content-Type": "application/json",
@@ -93,6 +94,16 @@ class OpenRouterProvider(BaseLLMProvider):
                         if "model" in response_json:
                             used_model = response_json.get("model", "")
                             logger.info(f"Used model: {used_model}")
+
+                        # while "<think>" in generated_text and "</think>" in generated_text:
+                        #         think_start = generated_text.find("<think>")
+                        #         think_end = generated_text.find("</think>") + len("</think>")
+                        #         generated_text = generated_text[:think_start] + generated_text[think_end:]
+                        #         logger.debug("Removed thinking content from response")
+
+                        # Remove ** symbols from the text
+                        # generated_text = generated_text.replace("**", "")
+                        # logger.debug("Removed ** symbols from response")
 
                         logger.debug(f"Response (first 200 chars): {generated_text[:200] + '...' if len(generated_text) > 200 else generated_text}")
                         logger.info(f"Successfully generated text (length: {len(generated_text)} chars)")

@@ -32,8 +32,12 @@ class PaperSearch(BaseNode[ResearchState]):
             # Get embedding for the query
             query_embedding = ctx.state.embedding_model.encode(query).tolist()
 
+            # Get papers per section from config
+            papers_per_section = ctx.state.search_config.papers_per_section
+            logger.info(f"Retrieving {papers_per_section} papers for section: {section}")
+
             # Find relevant papers
-            papers = db.find_similar_papers(query_embedding, limit=20)  # Get top 20 papers per section
+            papers = db.find_similar_papers(query_embedding, limit=papers_per_section)
 
             # Store papers
             section_papers[section] = papers
@@ -62,6 +66,10 @@ class ContentAnalysis(BaseNode[ResearchState]):
             if section.lower() == "abstract":
                 continue
 
+            # Skip Conclusion
+            if section.lower() == "conclusion":
+                continue
+
             # Create context from papers
             context = []
             for paper in papers[:5]:  # Use top 5 papers for analysis
@@ -83,11 +91,15 @@ Extract and summarize:
 
 Format the analysis in a structured way that can be used to write the survey paper section."""
 
+            # Get provider and config from state
+            provider_type = ctx.state.stage_results.get("provider", "ollama")
+            provider_config = ctx.state.stage_results.get("provider_config", {"model": ctx.state.outline_config.model})
+
             # Get analysis
             analysis = await LLMProviderFactory.generate_with_provider(
-                "ollama",
+                provider_type,
                 prompt,
-                {"model": ctx.state.outline_config.model}
+                provider_config
             )
             section_analysis[section] = analysis
 
@@ -105,6 +117,10 @@ class ContentSynthesis(BaseNode[ResearchState]):
         for section in ctx.state.outline:
             if section.lower() == "abstract":
                 continue  # Abstract is generated last
+
+            # Skip Conclusion
+            if section.lower() == "conclusion":
+                continue
 
             # Get analysis for this section
             analysis = ctx.state.section_analysis.get(section, "")
@@ -129,14 +145,22 @@ Requirements:
 5. Be comprehensive yet concise
 6. Highlight key themes and developments
 7. Discuss implications and connections
+8. No need to include the reference papers in the section content
+9. No need to include the title of the section in the section content
+10. Do not use markdown format in the section content, just use plain text
+
 
 Generate the section content:"""
 
+            # Get provider and config from state
+            provider_type = ctx.state.stage_results.get("provider", "ollama")
+            provider_config = ctx.state.stage_results.get("provider_config", {"model": ctx.state.outline_config.model})
+
             # Generate section content
             content = await LLMProviderFactory.generate_with_provider(
-                "ollama",
+                provider_type,
                 prompt,
-                {"model": ctx.state.outline_config.model}
+                provider_config
             )
             ctx.state.generated_sections[section] = content
             logger.info(f"Generated content for section: {section}")

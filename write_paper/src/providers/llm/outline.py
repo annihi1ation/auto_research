@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import logging
+import re
 from typing import List, Any, Dict, Optional
 from .factory import LLMProviderFactory
 from ..utils.db import DatabaseManager
@@ -14,7 +15,8 @@ class OutlineGenerator:
         provider_type: str = "ollama",
         provider_config: Optional[Dict[str, Any]] = None,
         model: Optional[str] = None,
-        reference_num: int = 1500
+        reference_num: int = 1500,
+        num_sections: int = 8
     ):
         """
         Initialize the outline generator
@@ -24,6 +26,7 @@ class OutlineGenerator:
             provider_config: Configuration for the LLM provider
             model: Model to use for generation (overrides provider config model)
             reference_num: Number of reference papers to use for context
+            num_sections: Target number of sections for the outline
         """
         self.provider_type = provider_type
         self.provider_config = provider_config or {}
@@ -34,10 +37,12 @@ class OutlineGenerator:
 
         self.db = DatabaseManager()
         self.reference_num = reference_num
+        self.num_sections = num_sections
 
         logger.info(f"Initialized OutlineGenerator with provider: {provider_type}")
         if model:
             logger.info(f"Using model: {model}")
+        logger.info(f"Target number of sections: {num_sections}")
 
     async def generate_outline(self, topic: str) -> List[str]:
         """
@@ -92,20 +97,33 @@ class OutlineGenerator:
 
     def _create_outline_prompt(self, topic: str, context: str) -> str:
         """Create prompt for outline generation"""
-        return f"""As an academic survey paper outline generator, create a detailed outline for a survey paper on the topic: "{topic}".
+        return f"""As an academic survey paper outline generator, create a detailed outline for a comprehensive survey paper on the topic: "{topic}".
 
 Context (Recent papers in the field):
 {context}
 
 Requirements:
-1. The outline should follow standard survey paper structure
-2. Sections should reflect the major themes and developments in the field
-3. Include both high-level overview sections and detailed technical sections
-4. Consider future directions and open challenges
+1. The outline should follow standard academic survey paper structure with clear progression of ideas
+2. Each section should address specific aspects of the topic as follows:
+   - Introduction: Define the scope, importance, and historical context of {topic}
+   - Background/Fundamentals: Cover essential concepts, terminology, and foundational knowledge
+   - Literature Review: Analyze existing research methodologies and approaches
+   - Technical Sections: Detail key technologies, algorithms, and implementations
+   - Comparative Analysis: Evaluate strengths and limitations of different approaches
+   - Applications: Explore real-world implementations and use cases
+   - Challenges: Identify current limitations and obstacles in the field
+   - Future Directions: Discuss emerging trends and research opportunities
+3. Balance theoretical foundations with practical applications
+4. Ensure comprehensive coverage of all major developments in the field
+5. Create exactly {self.num_sections} sections
+6. Do NOT include any subsections in the outline
+7. Exclude Abstract and Conclusion from the outline
+8. Do not use markdown formatting like #, ** or *
 
-Format the outline as a list of section titles, one per line.
+Format the outline as a numbered list of section titles (1. Section Title, 2. Section Title, etc.), one per line.
+The outline must contain exactly {self.num_sections} sections.
 
-Generate the outline:"""
+Think step by step to generate a cohesive and logically structured outline:"""
 
     def _parse_outline(self, text: str) -> List[str]:
         """Parse outline from generated text"""
@@ -131,7 +149,16 @@ Generate the outline:"""
             ]):
                 continue
 
-            # Remove numbering and bullet points
+            # Extract section from numbered list format (1. Section Title)
+            # Match patterns like "1. Introduction" or "1 - Introduction"
+            match = re.match(r'^\d+[\.\s\-]*\s*(.+)$', line)
+            if match:
+                section_title = match.group(1).strip()
+                if section_title and section_title not in sections:
+                    sections.append(section_title)
+                continue
+
+            # Remove numbering and bullet points for any other format
             line = line.lstrip('0123456789.- *')
             line = line.strip()
 
@@ -139,7 +166,11 @@ Generate the outline:"""
             if not line:
                 continue
 
-            # Add section if it's not already included
+            # Skip lines that appear to be descriptions rather than section titles
+            if len(line.split()) > 7 or line.endswith('.'):
+                continue
+
+            # Add section if it's not already included and looks like a title
             if line not in sections:
                 sections.append(line)
 
@@ -148,5 +179,11 @@ Generate the outline:"""
             sections.insert(0, "Abstract")
         if "Conclusion" not in sections:
             sections.append("Conclusion")
+
+        # # Ensure we have exactly the requested number of sections
+        # # If we have too many, trim the middle sections
+        # if len(sections) > self.num_sections + 2:  # +2 for Abstract and Conclusion
+        #     # Keep Abstract, trim middle sections, keep Conclusion
+        #     sections = [sections[0]] + sections[1:self.num_sections+1] + [sections[-1]]
 
         return sections

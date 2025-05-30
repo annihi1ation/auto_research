@@ -1,0 +1,69 @@
+# Default benchmark configuration
+default:
+  # Common parameters for all benchmarks
+  output_dir: "result"
+  reference_num: 100
+  num_sections: 8
+  papers_per_section: 5
+
+# Models to benchmark
+models:
+  - name: "llama3.3:70b"
+    description: "Llama 3.3 70B model"
+  - name: "llama3:8b"
+    description: "Llama 3 8B model"
+  - name: "mistral:7b"
+    description: "Mistral 7B model"
+  - name: "gemma2:27b"
+    description: "Gemma 2 27B model"
+
+# Topics to benchmark
+topics:
+  - name: "Multimodal Large Language Models (MLLMs)"
+    description: "Research on models that combine vision, text and other modalities"
+  - name: "Retrieval-Augmented Generation (RAG) and Memory Systems"
+    description: "Research on retrieval, context integration, and memory in LLMs"
+  - name: "Efficient & Low-Rank Model Adaptation"
+    description: "Research on efficient fine-tuning and adaptation methods"
+  - name: "AI Alignment and Constitutional AI"
+    description: "Research on aligning AI with human values"
+  - name: "Explainable and Interpretable AI (XAI)"
+    description: "Research on understanding and explaining AI decisions"
+  - name: "Foundation Models for Science"
+    description: "Research on applying foundation models to scientific domains"
+  - name: "Autonomous Agents and Multi-Agent Systems"
+    description: "Research on AI agents and their interactions"
+  - name: "Privacy-Preserving Machine Learning"
+    description: "Research on privacy techniques for machine learning"
+  - name: "Quantum Algorithms and Quantum Machine Learning"
+    description: "Research on quantum computing for AI and ML"
+  - name: "Neuromorphic and Brain-Inspired Computing"
+    description: "Research on brain-inspired AI architectures"
+
+# Custom benchmark configurations (overrides default parameters)
+benchmarks:
+  quick_test:
+    description: "Quick test with minimal settings for fast results"
+    models: ["llama3:8b"]
+    topics: ["Retrieval-Augmented Generation (RAG) and Memory Systems"]
+    reference_num: 50
+    num_sections: 4
+    papers_per_section: 3
+
+  comprehensive:
+    description: "Full benchmark with all models and topics"
+    models: ["llama3.3:70b", "llama3:8b", "mistral:7b", "gemma2:27b"]
+    topics:
+      [
+        "Multimodal Large Language Models (MLLMs)",
+        "Retrieval-Augmented Generation (RAG) and Memory Systems",
+        "Efficient & Low-Rank Model Adaptation",
+        "AI Alignment and Constitutional AI",
+        "Explainable and Interpretable AI (XAI)",
+        "Foundation Models for Science",
+        "Autonomous Agents and Multi-Agent Systems",
+        "Privacy-Preserving Machine Learning",
+      ]
+    reference_num: 200
+    num_sections: 10
+    papers_per_section: 8

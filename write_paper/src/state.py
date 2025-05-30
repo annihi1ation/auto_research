@@ -15,6 +15,7 @@ class OutlineConfig:
     """Configuration for outline generation"""
     reference_num: int = 1500
     model: str = "llama2"
+    num_sections: int = 8
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -24,15 +25,29 @@ class OutlineConfig:
         return cls(**data)
 
 @dataclass
+class SearchConfig:
+    """Configuration for paper search"""
+    papers_per_section: int = 20
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SearchConfig":
+        return cls(**data)
+
+@dataclass
 class ResearchState:
     """State for the research paper generation workflow"""
     topic: str
     outline_config: OutlineConfig = field(default_factory=OutlineConfig)
+    search_config: SearchConfig = field(default_factory=SearchConfig)
     outline: List[str] = field(default_factory=list)
     related_papers: Dict[str, ArxivPaper] = field(default_factory=dict)
     generated_sections: Dict[str, str] = field(default_factory=dict)
     current_phase: str = "init"
     embedding_model: Optional[SentenceTransformer] = None
+    num_sections: int = 8
 
     # AutoSurvey Pipeline specific fields
     initial_publications: List[ArxivPaper] = field(default_factory=list)
@@ -85,6 +100,7 @@ class ResearchState:
             state_dict = {
                 "topic": self.topic,
                 "outline_config": self.outline_config.to_dict(),
+                "search_config": self.search_config.to_dict(),
                 "outline": self.outline,
                 "related_papers": {k: paper.to_dict() for k, paper in self.related_papers.items()},
                 "generated_sections": self.generated_sections,
@@ -160,6 +176,11 @@ class ResearchState:
             # Reconstruct OutlineConfig
             outline_config = OutlineConfig.from_dict(state_dict.pop("outline_config"))
 
+            # Reconstruct SearchConfig if it exists
+            search_config = SearchConfig()
+            if "search_config" in state_dict:
+                search_config = SearchConfig.from_dict(state_dict.pop("search_config"))
+
             # Reconstruct ArxivPaper objects
             related_papers = {
                 k: ArxivPaper(**paper_dict)
@@ -180,6 +201,7 @@ class ResearchState:
             state = cls(
                 topic=state_dict.pop("topic"),
                 outline_config=outline_config,
+                search_config=search_config,
                 related_papers=related_papers,
                 initial_publications=initial_publications,
                 section_publications=section_publications,

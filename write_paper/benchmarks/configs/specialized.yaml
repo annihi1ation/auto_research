@@ -1,0 +1,55 @@
+# Specialized benchmark configuration focusing on specific AI research areas
+default:
+  # Common parameters for all benchmarks
+  output_dir: "result"
+  reference_num: 150
+  num_sections: 8
+  papers_per_section: 10
+
+# Models to benchmark
+models:
+  - name: "llama3:8b"
+    description: "Llama 3 8B model"
+  - name: "mistral:7b"
+    description: "Mistral 7B model"
+
+# Topics to benchmark (focused on selected areas from the original list)
+topics:
+  - name: "Multimodal Large Language Models (MLLMs)"
+    description: "Research on models that combine vision, text and other modalities"
+  - name: "Retrieval-Augmented Generation (RAG) and Memory Systems"
+    description: "Research on retrieval, context integration, and memory in LLMs"
+  - name: "AI Alignment and Constitutional AI"
+    description: "Research on aligning AI with human values"
+  - name: "Explainable and Interpretable AI (XAI)"
+    description: "Research on understanding and explaining AI decisions"
+
+# Custom benchmark configurations
+benchmarks:
+  quick_check:
+    description: "Fast quick check with minimal settings"
+    models: ["llama3:8b"]
+    topics: ["Retrieval-Augmented Generation (RAG) and Memory Systems"]
+    reference_num: 50
+    num_sections: 3
+    papers_per_section: 3
+
+  alignment_focus:
+    description: "Benchmark focused on AI alignment and explainability"
+    models: ["llama3:8b", "mistral:7b"]
+    topics:
+      [
+        "AI Alignment and Constitutional AI",
+        "Explainable and Interpretable AI (XAI)",
+      ]
+    reference_num: 120
+    num_sections: 6
+    papers_per_section: 8
+
+  multimodal_depth:
+    description: "In-depth benchmark on multimodal models"
+    models: ["llama3:8b", "mistral:7b"]
+    topics: ["Multimodal Large Language Models (MLLMs)"]
+    reference_num: 200
+    num_sections: 10
+    papers_per_section: 12

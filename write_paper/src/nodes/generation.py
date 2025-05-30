@@ -21,7 +21,7 @@ class PaperGeneration(BaseNode[ResearchState]):
         # Generate abstract last, after all sections are written
         summary_parts = []
         for section, content in ctx.state.generated_sections.items():
-            if section.lower() != "abstract":
+            if section.lower() != "abstract" and section.lower() != "conclusion":
                 summary = f"Section: {section}\nContent: {content[:500]}..."  # Use first 500 chars
                 summary_parts.append(summary)
         sections_summary = "\n\n".join(summary_parts)
@@ -43,13 +43,45 @@ class PaperGeneration(BaseNode[ResearchState]):
             'Generate the abstract:'
         ])
 
+        # Get provider and config from state
+        provider_type = ctx.state.stage_results.get("provider", "ollama")
+        provider_config = ctx.state.stage_results.get("provider_config", {"model": ctx.state.outline_config.model})
+
         # Generate abstract
         abstract = await LLMProviderFactory.generate_with_provider(
-            "ollama",
+            provider_type,
             abstract_prompt,
-            {"model": ctx.state.outline_config.model}
+            provider_config
         )
         ctx.state.generated_sections["Abstract"] = abstract
+
+        # Generate conclusion if not already present
+        conclusion_prompt = '\n'.join([
+            f'Generate a conclusion for a survey paper about "{ctx.state.topic}".',
+            '',
+            'The paper contains the following sections:',
+            sections_summary,
+            '',
+            'Requirements:',
+            '1. Summarize the key findings and contributions discussed in the paper',
+            '2. Highlight the current state of the field',
+            '3. Discuss future research directions and open challenges',
+            '4. Provide a thoughtful closing perspective',
+            '5. Be concise (400-500 words)',
+            '6. Use formal academic language',
+            '7. Do not use markdown format in the section content, just use plain text',
+            '',
+            'Generate the conclusion:'
+        ])
+
+        # Generate conclusion
+        conclusion = await LLMProviderFactory.generate_with_provider(
+            provider_type,
+            conclusion_prompt,
+            provider_config
+        )
+        ctx.state.generated_sections["Conclusion"] = conclusion
+        logger.info("Generated conclusion section")
 
         # Format paper in Markdown
         formatted_paper = self._format_markdown(ctx.state.outline, ctx.state.generated_sections)
@@ -85,7 +117,7 @@ class PaperGeneration(BaseNode[ResearchState]):
             json.dump(complete_state, f, indent=2)
         logger.info(f"Saved complete state to: {json_file}")
 
-        logger.info("Paper generation completed")
+        logger.info("")
         return End(formatted_paper)
 
     def _format_latex(self, outline: list[str], sections: Dict[str, str]) -> Dict[str, str]:

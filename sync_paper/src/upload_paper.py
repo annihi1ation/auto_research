@@ -336,21 +336,19 @@ async def main():
     try:
         logger.info("Starting upload workflow")
         state = UploadState()
-        result, history = await upload_graph.run(CheckDatabase(), state=state)
+        # Start from SetupDirectories to ensure the data directory and files are created
+        result = await upload_graph.run(SetupDirectories(), state=state)
         logger.info(f"Final result: {result}")
         print(f"\nFinal result: {result}")
         print("\nWorkflow history:")
-        for step in history:
-            if hasattr(step, 'node'):
-                print(f"- {step.node.__class__.__name__}: {state.current_status}")
-            else:
-                print(f"- End: {state.current_status}")
+        print(f"- Current status: {state.current_status}")
 
     except Exception as e:
         error_msg = f"Error during upload process: {str(e)}"
         logger.error(error_msg, exc_info=True)
         print(error_msg)
-        raise e
+        # Don't re-raise the exception to avoid confusing traceback
+        return None
 
 if __name__ == "__main__":
     asyncio.run(main())

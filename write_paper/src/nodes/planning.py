@@ -21,12 +21,17 @@ class PlanningPhase(BaseNode[ResearchState]):
 class OutlineGeneration(BaseNode[ResearchState]):
     """Generate paper outline using Ollama and reference papers"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "SectionPlanning":
-        logger.info("Generating outline using Ollama and reference papers")
+        # Get provider and config from state
+        provider_type = ctx.state.stage_results.get("provider", "ollama")
+        provider_config = ctx.state.stage_results.get("provider_config", {"model": ctx.state.outline_config.model})
+        logger.info(f"Generating outline using {provider_type} provider")
 
         # Initialize outline generator with config
         outline_generator = OutlineGenerator(
-            model=ctx.state.outline_config.model,
-            reference_num=ctx.state.outline_config.reference_num
+            provider_type=provider_type,
+            provider_config=provider_config,
+            reference_num=ctx.state.outline_config.reference_num,
+            num_sections=ctx.state.outline_config.num_sections
         )
 
         # Generate outline

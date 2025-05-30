@@ -57,6 +57,15 @@ class OllamaProvider(BaseLLMProvider):
                             if lines:
                                 last_response = json.loads(lines[-1])
                                 generated_text = last_response.get("response", "")
+
+                                # Remove <think> tags from response if present
+                                # Find and remove content between <think> and </think> tags
+                                while "<think>" in generated_text and "</think>" in generated_text:
+                                    think_start = generated_text.find("<think>")
+                                    think_end = generated_text.find("</think>") + len("</think>")
+                                    generated_text = generated_text[:think_start] + generated_text[think_end:]
+                                    logger.debug("Removed thinking content from response")
+
                                 logger.debug(f"Response (first 200 chars): {generated_text[:200] + '...' if len(generated_text) > 200 else generated_text}")
                                 logger.info(f"Successfully generated text (length: {len(generated_text)} chars)")
                                 return generated_text
