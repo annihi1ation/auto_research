@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(cp:*)",
+      "Bash(true)",
+      "mcp__obsidian__search_notes",
+      "Bash(chmod:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(python scripts/generate_multiple_papers.py:*)",
+      "Bash(pip install:*)",
+      "Bash(uv pip install:*)",
+      "Bash(uv run:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(rm:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}

@@ -69,7 +69,8 @@ async def generate_paper(
     provider: str = "ollama",
     reference_num: int = 1500,
     num_sections: int = 8,
-    papers_per_section: int = 20
+    papers_per_section: int = 20,
+    use_default_outline: bool = False
 ) -> None:
     """Generate a research paper on the given topic"""
     try:
@@ -83,7 +84,8 @@ async def generate_paper(
         outline_config = OutlineConfig(
             model=model,
             reference_num=reference_num,
-            num_sections=num_sections
+            num_sections=num_sections,
+            use_default_outline=use_default_outline
         )
 
         # Initialize search config
@@ -199,6 +201,8 @@ def main():
     parser.add_argument("--reference-num", type=int, default=1500, help="Number of reference papers to consider")
     parser.add_argument("--num-sections", type=int, default=8, help="Number of sections to generate")
     parser.add_argument("--papers-per-section", type=int, default=20, help="Number of papers to retrieve per section")
+    parser.add_argument("--use-default-outline", action="store_true",
+                       help="Use default outline instead of generating one with LLM")
 
     # Check if OpenRouter API key is set when using openrouter provider
     args = parser.parse_args()
@@ -218,7 +222,8 @@ def main():
         provider=args.provider,
         reference_num=args.reference_num,
         num_sections=args.num_sections,
-        papers_per_section=args.papers_per_section
+        papers_per_section=args.papers_per_section,
+        use_default_outline=args.use_default_outline
     ))
 
 if __name__ == "__main__":

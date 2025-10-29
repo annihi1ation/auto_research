@@ -73,6 +73,49 @@ local.properties
 write_paper/output/
 write_paper/paper_states/
 output/
+outputs/
 paper_states/
+output_directory/
+result/
+sync_paper/outputs/
 
+# Data directories with large files
 write_paper/json2bibtex/data
+data/
+*/data/arxiv-metadata-oai-snapshot.json
+
+# API keys and sensitive files
+kaggle.json
+*.key
+*.pem
+
+# UV package manager
+uv.lock
+
+# LaTeX auxiliary files
+*.aux
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# BibTeX files (generated)
+cite.bib
+cite_dblp.bib
+
+# Docker
+docker-compose.override.yml
+
+# Large JSON data files (but keep config files)
+*.json
+!package.json
+!tsconfig.json
+!pyproject.json
+!*config*.json
+!topics.yaml
+
+# Workspace files
+*.code-workspace

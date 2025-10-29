@@ -21,6 +21,19 @@ class PlanningPhase(BaseNode[ResearchState]):
 class OutlineGeneration(BaseNode[ResearchState]):
     """Generate paper outline using Ollama and reference papers"""
     async def run(self, ctx: GraphRunContext[ResearchState]) -> "SectionPlanning":
+        # Check if we should use default outline
+        if ctx.state.outline_config.use_default_outline:
+            logger.info("Using default outline as requested")
+            ctx.state.outline = [
+                "Abstract",
+                "Introduction",
+                "Background",
+                "Current State of the Art",
+                "Future Directions",
+                "Conclusion"
+            ]
+            return SectionPlanning()
+
         # Get provider and config from state
         provider_type = ctx.state.stage_results.get("provider", "ollama")
         provider_config = ctx.state.stage_results.get("provider_config", {"model": ctx.state.outline_config.model})

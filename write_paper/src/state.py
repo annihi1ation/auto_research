@@ -16,6 +16,7 @@ class OutlineConfig:
     reference_num: int = 1500
     model: str = "llama2"
     num_sections: int = 8
+    use_default_outline: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)

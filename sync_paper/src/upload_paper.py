@@ -87,7 +87,17 @@ logger.debug("Kaggle API imported successfully")
 # Initialize embedding model
 model_choose = "nomic-ai/nomic-embed-text-v2-moe"
 embedding_model = SentenceTransformer(model_choose, trust_remote_code=True)
-embedding_model.to(torch.device('mps'))
+
+# Choose device based on availability
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+elif torch.backends.mps.is_available():
+    device = torch.device('mps')
+else:
+    device = torch.device('cpu')
+
+logger.debug(f"Using device: {device}")
+embedding_model.to(device)
 
 # Categories to filter
 CATEGORIES_TO_FILTER = ['cs.AI', 'cs.CL', 'cs.CV', 'cs.LG', 'stat.ML']

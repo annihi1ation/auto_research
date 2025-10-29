@@ -24,56 +24,70 @@ class DatabaseManager:
         return self.embedding_model.encode(text).tolist()
 
     def find_similar_papers(self, embedding: List[float], limit: int = 5) -> List[ArxivPaper]:
-        """Find papers with similar embeddings using vector similarity search"""
+        """Find papers with similar embeddings using cosine similarity computed in Python"""
         try:
             logger.info("Starting vector similarity search with limit: %d", limit)
             with Session(self.engine) as session:
-                # Convert embedding to PostgreSQL vector format
-                vector_str = f'[{",".join(map(str, embedding))}]'
-                logger.debug("Converted embedding to vector format")
+                logger.debug("Computing similarity in Python (pgvector not available)")
 
-                # Perform vector similarity search
+                # Get all papers with embeddings (limit to reasonable number for performance)
                 query = text("""
-                    SELECT *, (embedding <-> :embedding) as distance
-                    FROM arxiv_papers
-                    ORDER BY embedding <-> :embedding
-                    LIMIT :limit
+                    SELECT * FROM arxiv_papers
+                    WHERE embedding IS NOT NULL
+                    LIMIT 1000
                 """)
 
-                logger.debug("Executing vector similarity query")
-                result = session.execute(
-                    query,
-                    {"embedding": vector_str, "limit": limit}
-                )
+                logger.debug("Fetching papers for similarity computation")
+                result = session.execute(query)
 
-                papers = []
+                papers_with_similarity = []
+                target_embedding = np.array(embedding)
+
                 for row in result:
                     try:
                         # Convert row to dictionary properly
                         row_dict = dict(row._mapping)
 
-                        paper_dict = {
-                            'id': row_dict.get('id'),
-                            'submitter': row_dict.get('submitter'),
-                            'authors': row_dict.get('authors'),
-                            'title': row_dict.get('title'),
-                            'comments': row_dict.get('comments'),
-                            'journal_ref': row_dict.get('journal_ref'),
-                            'doi': row_dict.get('doi'),
-                            'report_no': row_dict.get('report_no'),
-                            'categories': row_dict.get('categories'),
-                            'license': row_dict.get('license'),
-                            'abstract': row_dict.get('abstract'),
-                            'versions': row_dict.get('versions'),
-                            'update_date': row_dict.get('update_date'),
-                            'authors_parsed': row_dict.get('authors_parsed'),
-                            'embedding': row_dict.get('embedding')
-                        }
-                        papers.append(ArxivPaper(**paper_dict))
+                        # Parse the embedding string back to array
+                        embedding_str = row_dict.get('embedding')
+                        if embedding_str:
+                            # Remove brackets and split by comma
+                            embedding_values = embedding_str.strip('[]').split(',')
+                            paper_embedding = np.array([float(x.strip()) for x in embedding_values])
+
+                            # Compute cosine similarity
+                            similarity = np.dot(target_embedding, paper_embedding) / (
+                                np.linalg.norm(target_embedding) * np.linalg.norm(paper_embedding)
+                            )
+
+                            paper_dict = {
+                                'id': row_dict.get('id'),
+                                'submitter': row_dict.get('submitter'),
+                                'authors': row_dict.get('authors'),
+                                'title': row_dict.get('title'),
+                                'comments': row_dict.get('comments'),
+                                'journal_ref': row_dict.get('journal_ref'),
+                                'doi': row_dict.get('doi'),
+                                'report_no': row_dict.get('report_no'),
+                                'categories': row_dict.get('categories'),
+                                'license': row_dict.get('license'),
+                                'abstract': row_dict.get('abstract'),
+                                'versions': row_dict.get('versions'),
+                                'update_date': row_dict.get('update_date'),
+                                'authors_parsed': row_dict.get('authors_parsed'),
+                                'embedding': row_dict.get('embedding')
+                            }
+
+                            papers_with_similarity.append((similarity, ArxivPaper(**paper_dict)))
+
                     except Exception as e:
-                        logger.error("Error parsing paper row: %s", str(e))
-                        logger.debug("Row data: %s", str(row))
+                        logger.error("Error processing paper row: %s", str(e))
                         continue
+
+                # Sort by similarity (highest first) and return top papers
+                papers_with_similarity.sort(key=lambda x: x[0], reverse=True)
+                papers = [paper for similarity, paper in papers_with_similarity[:limit]]
+
                 logger.info("Found %d similar papers", len(papers))
 
                 # Log paper titles for debugging

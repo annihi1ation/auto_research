@@ -9,7 +9,6 @@ A tool for automatically generating research survey papers using Ollama and vect
 - Content analysis and synthesis using Ollama
 - IEEE-style LaTeX paper formatting
 - Support for customizable paper generation parameters
-- **NEW: AutoSurvey Pipeline** - A comprehensive 4-stage pipeline for generating high-quality surveys
 
 ## Requirements
 
@@ -48,23 +47,7 @@ Generate a survey paper:
 
 ```bash
 # From the write_paper directory
-python -m src.main --topic "MLLM" \
-                   --output output_directory \
-                   --model llama2 \
-                   --reference-num 1500
-```
-
-### Using AutoSurvey Pipeline
-
-To use the new AutoSurvey pipeline:
-
-```bash
-# From the write_paper directory
-python -m src.main --topic "MLLM" \
-                   --output output_directory \
-                   --model llama2 \
-                   --reference-num 1500 \
-                   --autosurvey
+python -m src.main --topic "LLMs For Bioinformatics" --model qwen3 --output output_directory --reference-num 100 --use-default-outline
 ```
 
 Arguments:
@@ -72,7 +55,6 @@ Arguments:
 - `--output`: Output directory for generated papers (default: "output")
 - `--model`: Ollama model to use (default: "llama2")
 - `--reference-num`: Number of reference papers to consider (default: 1500)
-- `--autosurvey`: Use the AutoSurvey pipeline for enhanced survey generation
 
 ## Output
 
@@ -91,9 +73,7 @@ The tool generates a LaTeX file in IEEE conference/journal style with:
 
 ## Architecture
 
-### Standard Pipeline
-
-The standard paper generation process follows these steps:
+The paper generation process follows these steps:
 
 1. Planning Phase:
    - Topic analysis
@@ -109,33 +89,185 @@ The standard paper generation process follows these steps:
    - IEEE LaTeX formatting
    - Final paper assembly with IEEE template
 
-### AutoSurvey Pipeline
+## Survey Paper Generation System Documentation
 
-The AutoSurvey pipeline is a more comprehensive approach with the following stages:
+### Project Overview
 
-1. **Stage 1: Initial Retrieval & Outline Generation**
-   - Retrieves publications from a database
-   - Generates a structured hierarchical outline
+This system is designed to automatically generate survey papers by processing and analyzing academic papers from ArXiv. The system uses a PostgreSQL database with vector embeddings for semantic search and similarity matching.
 
-2. **Stage 2: Subsection Drafting**
-   - Retrieves relevant publications for each section
-   - Drafts each section and subsection of the outline
+### Project Structure
 
-3. **Stage 3: Integration & Refinement**
-   - Refines each section
-   - Integrates the refined sections into a cohesive survey
+```
+/data2/leyizhao/auto-research/
+└── write_paper/
+    ├── src/
+    │   └── models/
+    │       └── paper.py          # Database models for ArXiv papers
+    └── README.md                 # This documentation file
+```
 
-4. **Stage 4: Rigorous Evaluation & Iteration**
-   - Evaluates the survey based on coverage, structure, relevance, and faithfulness
-   - Iterates to improve the survey
-   - Selects the best version
+### Core Components
 
-The AutoSurvey pipeline produces higher quality surveys with:
-- More comprehensive coverage
-- Better structured content with hierarchical organization
-- Targeted retrieval of relevant papers for each section
-- Iterative refinement process
-- Quality evaluation with concrete metrics
+#### 1. Database Models (`src/models/paper.py`)
+
+##### ArxivPaper Model
+The main data model representing academic papers from ArXiv with the following key features:
+
+**Fields:**
+- `id` (String, Primary Key): Unique identifier for the paper
+- `submitter` (String): Person who submitted the paper
+- `authors` (String): Paper authors
+- `title` (String): Paper title
+- `comments` (String): Additional comments
+- `journal_ref` (String): Journal reference
+- `doi` (String): Digital Object Identifier
+- `report_no` (String): Report number
+- `categories` (String): ArXiv categories
+- `license` (String): Paper license
+- `abstract` (Text): Paper abstract
+- `versions` (JSONB): Version history
+- `update_date` (String): Last update date
+- `authors_parsed` (JSONB): Parsed author information
+- `embedding` (Vector): 768-dimensional vector embedding for semantic search
+
+##### Custom Vector Type
+A custom SQLAlchemy type decorator for handling vector embeddings:
+- Stores 768-dimensional vectors as strings in the database
+- Automatically converts between Python lists and database string format
+- Format: `[value1,value2,...,value768]`
+
+### Key Features
+
+#### 1. Vector Embeddings
+- 768-dimensional embeddings for semantic similarity search
+- Enables finding related papers based on content similarity
+- Supports efficient nearest-neighbor queries
+
+#### 2. JSONB Support
+- Flexible storage for complex data structures
+- Used for version history and parsed author information
+- Enables rich querying capabilities
+
+#### 3. Serialization
+- `to_dict()` method for JSON serialization
+- Excludes embeddings by default to reduce payload size
+- Suitable for API responses and data export
+
+### Workflow Architecture
+
+#### Phase 1: Data Collection
+1. **ArXiv Data Ingestion**
+   - Fetch papers from ArXiv API
+   - Parse metadata and abstracts
+   - Store in PostgreSQL database
+
+#### Phase 2: Embedding Generation
+1. **Text Processing**
+   - Extract relevant text (title, abstract)
+   - Preprocess for embedding generation
+
+2. **Vector Generation**
+   - Generate 768-dimensional embeddings
+   - Store in database for similarity search
+
+#### Phase 3: Survey Generation
+1. **Topic Analysis**
+   - Identify key research areas
+   - Cluster similar papers
+   - Extract main themes
+
+2. **Content Synthesis**
+   - Aggregate findings from related papers
+   - Generate structured survey sections
+   - Create comprehensive bibliography
+
+#### Phase 4: Output Generation
+1. **Document Creation**
+   - Format survey paper
+   - Generate citations
+   - Create final output (PDF/LaTeX/Markdown)
+
+### Database Schema
+
+```sql
+CREATE TABLE arxiv_papers (
+    id VARCHAR PRIMARY KEY,
+    submitter VARCHAR,
+    authors VARCHAR,
+    title VARCHAR,
+    comments VARCHAR,
+    journal_ref VARCHAR,
+    doi VARCHAR,
+    report_no VARCHAR,
+    categories VARCHAR,
+    license VARCHAR,
+    abstract TEXT,
+    versions JSONB,
+    update_date VARCHAR,
+    authors_parsed JSONB,
+    embedding VARCHAR  -- Stores vector as string
+);
+```
+
+### Usage Example
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from models.paper import ArxivPaper, Base
+
+# Database setup
+engine = create_engine('postgresql://user:pass@localhost/arxiv_db')
+Base.metadata.create_all(engine)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# Query papers by category
+papers = session.query(ArxivPaper).filter(
+    ArxivPaper.categories.contains('cs.AI')
+).all()
+
+# Convert to JSON-serializable format
+papers_data = [paper.to_dict() for paper in papers]
+```
+
+### Next Steps
+
+To complete the survey paper generation system, consider implementing:
+
+1. **Data Collection Module**
+   - ArXiv API integration
+   - Batch processing capabilities
+   - Update scheduling
+
+2. **Embedding Service**
+   - Integration with embedding models (e.g., Sentence-BERT)
+   - Batch embedding generation
+   - Caching mechanism
+
+3. **Survey Generation Engine**
+   - Topic modeling algorithms
+   - Content synthesis logic
+   - Citation management
+
+4. **Output Formatter**
+   - LaTeX template generation
+   - Bibliography management
+   - Multiple output formats
+
+### Dependencies
+
+- SQLAlchemy: ORM for database interactions
+- PostgreSQL: Database with JSONB support
+- Vector embedding library (e.g., sentence-transformers)
+- ArXiv API client
+
+### Configuration
+
+Ensure the following environment variables are set:
+- `DATABASE_URL`: PostgreSQL connection string
+- `EMBEDDING_MODEL`: Model name for generating embeddings
+- `ARXIV_API_KEY`: (if required) ArXiv API credentials
 
 ## Contributing
 
