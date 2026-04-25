@@ -1,7 +1,7 @@
 # Auto Research
 
 A monorepo for automating research workflows: discovering literature, planning and generating survey/paper drafts, and syncing/uploading artifacts. It contains two primary apps:
-
+- Related arXiv paper: https://arxiv.org/abs/2510.26012
 - `write_paper/` — research agent pipelines to plan, generate, and assemble papers (LaTeX/Markdown), including benchmarking utilities.
 - `sync_paper/` — utilities and pipelines to generate diagrams and upload/sync paper-related outputs; includes a simple Docker setup.
 
